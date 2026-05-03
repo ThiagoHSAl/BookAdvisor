@@ -16,13 +16,17 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 @st.cache_data(ttl=3600)
 def llm_processamento_nlu(prompt_usuario):
     prompt = f"""
-    O usuário de uma loja de livros digitou o seguinte pedido: "{prompt_usuario}"
+    O usuário de uma loja de livros no Brasil digitou o seguinte pedido: "{prompt_usuario}"
     Transforme esse pedido em uma expressão de busca otimizada para a API do Google Books.
     
     REGRAS CRÍTICAS:
-    1. Se pedir GÊNERO LITERÁRIO (ex: ação, romance, terror), use 'subject:' seguido do gênero em inglês.
-    2. Exemplo: "livro de romance" -> subject:"romance"
-    3. Retorne APENAS a string, sem aspas, sem explicações.
+    1. GÊNERO LITERÁRIO: Use 'subject:' seguido do gênero em inglês (ex: subject:"poetry").
+    2. NACIONALIDADE/ORIGEM: Se o usuário pedir livros de um país específico (ex: brasileiro, japonês, francês), NUNCA deixe a palavra solta. 
+       - Regra A: Combine com literatura usando aspas exatas (ex: "brazilian literature" ou "japanese fiction").
+       - Regra B: Ou adicione a exigência de autoria em inglês (ex: "brazilian authors").
+    3. EXEMPLO ERRADO: subject:"poetry" brazilian
+    4. EXEMPLO CERTO: subject:"poetry" "brazilian authors"
+    5. Retorne APENAS a string de busca final, sem aspas externas, sem explicações.
     """
     resposta = client.models.generate_content(
         model='gemini-3.1-flash-lite-preview', 
