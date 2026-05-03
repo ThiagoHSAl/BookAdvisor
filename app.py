@@ -24,9 +24,14 @@ def llm_processamento_nlu(prompt_usuario):
     2. NACIONALIDADE/ORIGEM: Se o usuário pedir livros de um país específico (ex: brasileiro, japonês, francês), NUNCA deixe a palavra solta. 
        - Regra A: Combine com literatura usando aspas exatas (ex: "brazilian literature" ou "japanese fiction").
        - Regra B: Ou adicione a exigência de autoria em inglês (ex: "brazilian authors").
-    3. EXEMPLO ERRADO: subject:"poetry" brazilian
-    4. EXEMPLO CERTO: subject:"poetry" "brazilian authors"
-    5. Retorne APENAS a string de busca final, sem aspas externas, sem explicações.
+    3. NOME DE AUTOR: Se o usuário pedir obras de um autor ou autora específica (ex: Machado de Assis, Tolkien, Clarice Lispector), use o operador 'inauthor:' seguido do nome exato entre aspas.
+    
+    EXEMPLOS DE SAÍDA:
+    - Pedido: "livros de poesia brasileira" -> subject:"poetry" "brazilian literature"
+    - Pedido: "obras do Machado de Assis" -> inauthor:"Machado de Assis"
+    - Pedido: "terror do Stephen King" -> subject:"horror" inauthor:"Stephen King"
+    
+    Retorne APENAS a string de busca final, sem aspas externas em volta de toda a frase, e sem nenhuma explicação adicional.
     """
     resposta = client.models.generate_content(
         model='gemini-3.1-flash-lite-preview', 
