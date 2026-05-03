@@ -36,7 +36,9 @@ def llm_processamento_nlu(prompt_usuario):
 @st.cache_data(ttl=3600)
 def buscar_e_enriquecer(query_otimizada: str) -> dict:
     API_KEY = st.secrets["BOOKS_API_KEY"]
-    url = f"https://www.googleapis.com/books/v1/volumes?q={query_otimizada}&maxResults=30&key={API_KEY}"
+    
+    # CORREÇÃO 1: Adicionado '&country=BR' para resolver o erro 'unknownLocation'
+    url = f"https://www.googleapis.com/books/v1/volumes?q={query_otimizada}&maxResults=30&country=BR&key={API_KEY}"
     isbns_selecionados = {"relevante": None, "avaliado": None, "recente": None}
 
     try:
@@ -104,9 +106,13 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
         isbns_usados.add(isbns_selecionados["relevante"])
 
     except Exception as e:
-        st.error(f"Erro na busca do catálogo: {e}")
+        # CORREÇÃO 2: Blinda a chave! Substitui a string da chave por asteriscos no texto de erro
+        erro_seguro = str(e).replace(API_KEY, "******[CHAVE OCULTA]******")
+        
+        st.error(f"Erro na busca do catálogo: {erro_seguro}")
         if hasattr(e, 'response') and e.response is not None:
             st.error(f"O Google disse: {e.response.text}")
+            
         return {k: None for k in isbns_selecionados}
 
     dados_por_isbn: dict[str, dict] = {l["isbn"]: l["dados_google"] for l in livros_validos}
