@@ -105,6 +105,8 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
 
     except Exception as e:
         st.error(f"Erro na busca do catálogo: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            st.error(f"O Google disse: {e.response.text}")
         return {k: None for k in isbns_selecionados}
 
     dados_por_isbn: dict[str, dict] = {l["isbn"]: l["dados_google"] for l in livros_validos}
