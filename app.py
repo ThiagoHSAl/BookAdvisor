@@ -16,22 +16,26 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 @st.cache_data(ttl=3600)
 def llm_processamento_nlu(prompt_usuario):
     prompt = f"""
-    O usuário de uma loja de livros no Brasil digitou o seguinte pedido: "{prompt_usuario}"
+    O usuário de uma loja de livros digitou o seguinte pedido: "{prompt_usuario}"
     Transforme esse pedido em uma expressão de busca otimizada para a API do Google Books.
     
-    REGRAS CRÍTICAS:
-    1. GÊNERO LITERÁRIO: Use 'subject:' seguido do gênero em inglês (ex: subject:"poetry").
-    2. NACIONALIDADE/ORIGEM: Se o usuário pedir livros de um país específico (ex: brasileiro, japonês, francês), NUNCA deixe a palavra solta. 
-       - Regra A: Combine com literatura usando aspas exatas (ex: "brazilian literature" ou "japanese fiction").
-       - Regra B: Ou adicione a exigência de autoria em inglês (ex: "brazilian authors").
-    3. NOME DE AUTOR: Se o usuário pedir obras de um autor ou autora específica (ex: Machado de Assis, Tolkien, Clarice Lispector), use o operador 'inauthor:' seguido do nome exato entre aspas.
+    REGRAS CRÍTICAS (OPERADORES DETERMINÍSTICOS):
+    1. ASSUNTO/GÊNERO COMPOSTO: Use 'subject:' seguido do gênero em inglês entre ASPAS DUPLAS para termos compostos.
+       - Exemplo: "Ficção científica" -> subject:"science fiction"
+       - Exemplo: "Realismo mágico" -> subject:"magic realism"
+       - Exemplo: "Romance histórico" -> subject:"historical fiction"
+    2. MÚLTIPLOS GÊNEROS: Se o usuário pedir dois gêneros, combine-os (ex: subject:"fantasy" subject:"romance").
+    3. AUTOR(A): Use 'inauthor:' (ex: inauthor:"Clarice Lispector").
+    4. TÍTULO EXATO: Use 'intitle:' (ex: intitle:"A Hora da Estrela").
+    5. EDITORA: Use 'inpublisher:' (ex: inpublisher:"Companhia das Letras").
+    6. NACIONALIDADE: NUNCA deixe a palavra solta. Use aspas exatas para autoria/literatura (ex: "brazilian literature" ou "brazilian authors").
     
     EXEMPLOS DE SAÍDA:
-    - Pedido: "livros de poesia brasileira" -> subject:"poetry" "brazilian literature"
-    - Pedido: "obras do Machado de Assis" -> inauthor:"Machado de Assis"
-    - Pedido: "terror do Stephen King" -> subject:"horror" inauthor:"Stephen King"
+    - Pedido: "Livro de ficção científica brasileiro" -> subject:"science fiction" "brazilian literature"
+    - Pedido: "Romance histórico do Ken Follett" -> subject:"historical fiction" inauthor:"Ken Follett"
+    - Pedido: "Ação e aventura" -> subject:"action & adventure"
     
-    Retorne APENAS a string de busca final, sem aspas externas em volta de toda a frase, e sem nenhuma explicação adicional.
+    Retorne APENAS a string de busca final, sem explicações.
     """
     resposta = client.models.generate_content(
         model='gemini-3.1-flash-lite-preview', 
