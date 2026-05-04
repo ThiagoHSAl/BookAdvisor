@@ -23,11 +23,11 @@ def llm_processamento_nlu(prompt_usuario):
     - Autor: inauthor:"nome"
     - Título: intitle:"nome"
     - Editora: inpublisher:"nome"
-    - Nacionalidade: "brazilian literature" ou "brazilian authors"
+    - Nacionalidade: "brazilian" ou "brazilian authors"
     - Saída: APENAS a string de busca, sem explicações ou aspas globais.
 
     Exemplos:
-    "ficção científica brasileira" -> subject:"science fiction" "brazilian literature"
+    "ficção científica japonesa" -> subject:"science fiction" "japanese"
     "romance do tolkien" -> subject:"romance" inauthor:"Tolkien"
     "livro 1984" -> intitle:"1984"
 
@@ -50,9 +50,33 @@ def llm_processamento_nlu(prompt_usuario):
 @st.cache_data(ttl=3600)
 def buscar_e_enriquecer(query_otimizada: str) -> dict:
     API_KEY = st.secrets["BOOKS_API_KEY"]
+    query_lower = query_otimizada.lower()
     
-    # CORREÇÃO 1: Adicionado '&country=BR' para resolver o erro 'unknownLocation'
-    url = f"https://www.googleapis.com/books/v1/volumes?q={query_otimizada}&maxResults=30&country=BR&key={API_KEY}"
+    # Mapeamento expandido das línguas mais faladas/importantes
+    idiomas_map = {
+        "brazilian": "pt", "portuguese": "pt",
+        "english": "en", "american": "en", "british": "en",
+        "spanish": "es", "hispanic": "es",
+        "french": "fr",
+        "german": "de",
+        "italian": "it",
+        "chinese": "zh-CN", "mandarin": "zh-CN",
+        "japanese": "ja",
+        "russian": "ru",
+        "hindi": "hi",
+        "arabic": "ar",
+        "korean": "ko"
+    }
+
+    # Detecta se alguma das palavras-chave de nacionalidade está na query
+    lang_restrict = ""
+    for nacionalidade, codigo in idiomas_map.items():
+        if nacionalidade in query_lower:
+            lang_restrict = f"&langRestrict={codigo}"
+            break # Interrompe no primeiro match encontrado
+
+    # URL montada com suporte internacional, país fixo BR para preços e restrição de língua dinâmica
+    url = f"https://www.googleapis.com/books/v1/volumes?q={query_otimizada}&maxResults=30&country=BR{lang_restrict}&key={API_KEY}"
     isbns_selecionados = {"relevante": None, "avaliado": None, "recente": None}
 
     try:
