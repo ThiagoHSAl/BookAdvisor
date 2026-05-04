@@ -66,27 +66,31 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
         "german": "de"
     }
 
-    # 1. Identificação dinâmica do idioma
     lang_code = None
+    termo_encontrado = None
+
+    # Identifica se há uma nacionalidade na query gerada pela NLU
     for nacionalidade, codigo in idiomas_map.items():
         if nacionalidade in query_lower:
             lang_code = codigo
+            termo_encontrado = nacionalidade
             break 
 
-    # 2. Construção da Query e Parâmetros de Restrição
-    # Se detectado idioma, aplicamos o filtro duplo (parâmetro + operador na query)
+    # Limpeza da Query: Removemos o termo de nacionalidade da busca textual
+    # mas mantemos a lógica de restrição técnica
+    query_limpa = query_otimizada
+    if termo_encontrado:
+        # Remove o termo (ex: "english") e possíveis aspas ou "authors" que a NLU gerou
+        query_limpa = query_limpa.replace(f'"{termo_encontrado}"', "").replace(termo_encontrado, "").replace("authors", "")
+        query_limpa = query_limpa.strip().replace("  ", " ").replace(" ", "+")
+
+    # Aplicação dos filtros determinísticos
     lang_restrict_param = ""
-    query_final = query_otimizada
-    
-    query_preparada = query_otimizada.replace(" ", "+")
-    
     if lang_code:
-        # Note o sinal de + antes do operador lr
-        query_final = f"{query_preparada}+lr:lang_{lang_code}"
+        query_final = f"{query_limpa}+lr:lang_{lang_code}"
         lang_restrict_param = f"&langRestrict={lang_code}"
     else:
-        query_final = query_preparada
-        lang_restrict_param = ""
+        query_final = query_limpa.replace(" ", "+")
 
     url = f"https://www.googleapis.com/books/v1/volumes?q={query_final}&maxResults=30&country=BR{lang_restrict_param}&key={API_KEY}"
     # DEBUG: Exibe a URL no Streamlit (remova a chave por segurança na exibição)
