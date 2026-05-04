@@ -93,12 +93,11 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
 
         isbns_usados = set()
 
-        # --- NOVA LÓGICA DE SELEÇÃO E PRIORIDADES ---
+        # --- LÓGICA DE SELEÇÃO E PRIORIDADES ATUALIZADA ---
         
         # 1. PRIORIDADE MÁXIMA: Mais Recente
         livros_com_data = [l for l in livros_validos if l["data"] != "0000"]
         if livros_com_data:
-            # Em vez de pegar só o ISBN, guardamos o dicionário do livro inteiro
             livro_recente = sorted(livros_com_data, key=lambda x: x["data"], reverse=True)[0]
         else:
             livro_recente = livros_validos[0]
@@ -106,23 +105,33 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
         isbns_selecionados["recente"] = livro_recente["isbn"]
         nota_recente = livro_recente.get("nota", 0)
 
-        # 2. PRIORIDADE MÉDIA: Mais Bem Avaliado (Regra de Qualidade Mínima)
-        # Pega os livros que têm nota e são diferentes do recente
-        livros_diferentes_com_nota = [l for l in livros_validos if l["nota"] > 0 and l["isbn"] != livro_recente["isbn"]]
+        # 2. PRIORIDADE MÉDIA: Mais Bem Avaliado (Com regra anti-repetição para N/A)
+        livros_diferentes = [l for l in livros_validos if l["isbn"] != livro_recente["isbn"]]
+        livros_diferentes_com_nota = [l for l in livros_diferentes if l["nota"] > 0]
         
         if livros_diferentes_com_nota:
             melhor_candidato = sorted(livros_diferentes_com_nota, key=lambda x: x["nota"], reverse=True)[0]
-            # Aplica a sua regra: só mostra outro se a nota for MAIOR OU IGUAL à do mais recente
+            # Tem nota e é maior ou igual ao recente? Mostra ele.
             if melhor_candidato["nota"] >= nota_recente:
                 isbns_selecionados["avaliado"] = melhor_candidato["isbn"]
             else:
+                # O recente tem uma nota estritamente melhor. Repete o recente para manter a qualidade.
                 isbns_selecionados["avaliado"] = livro_recente["isbn"]
         else:
-            # Se não houver nenhum outro livro com nota, repete o recente
-            isbns_selecionados["avaliado"] = livro_recente["isbn"]
+            # Não existe NENHUM outro livro com nota no retorno
+            if nota_recente > 0:
+                # O recente é o ÚNICO livro com nota da lista toda. Repete ele.
+                isbns_selecionados["avaliado"] = livro_recente["isbn"]
+            else:
+                # NOVA REGRA: O recente é N/A (0) e todos os outros são N/A (0).
+                # Para não repetir a mesma capa à toa, garantimos variedade visual mostrando um livro diferente!
+                if livros_diferentes:
+                    isbns_selecionados["avaliado"] = livros_diferentes[0]["isbn"]
+                else:
+                    isbns_selecionados["avaliado"] = livro_recente["isbn"]
 
         # 3. PRIORIDADE FINAL: Mais Relevante
-        # A relevância do Google é a ordem da lista. Pegamos o primeiro que não foi usado ainda.
+        # Verifica quais ISBNs já foram alocados nas abas anteriores
         isbns_usados = {isbns_selecionados["recente"], isbns_selecionados["avaliado"]}
         restantes_relevantes = [l for l in livros_validos if l["isbn"] not in isbns_usados]
         
@@ -131,7 +140,7 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
         else:
             isbns_selecionados["relevante"] = livro_recente["isbn"]
             
-        # --------------------------------------------
+        # --------------------------------------------------
 
     except Exception as e:
         # CORREÇÃO 2: Blinda a chave! Substitui a string da chave por asteriscos no texto de erro
@@ -187,6 +196,7 @@ def llm_enriquecimento_semantico(prompt_usuario: str, dados_json_ld: dict, categ
     prompt = f"""
     O usuário procurou por: "{prompt_usuario}".
     Você está recomendando o livro "{titulo}" porque ele foi classificado como o "{categoria_texto}" da busca.
+
     Avaliação Média: {dados_avaliacao.get('ratingValue', 'N/A')}
     Ano de Publicação: {dados_json_ld.get('datePublished', 'N/A')}
 
