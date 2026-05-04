@@ -1,10 +1,8 @@
 import streamlit as st
 import requests
-import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from google import genai
 from api_test import montar_dados_google, enriquecer_metadados_com_google
-from urllib.parse import quote
 
 # ==========================================
 # CONFIGURAÇÃO DA API DO GEMINI
@@ -13,7 +11,7 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ==========================================
-# PASSO 1: NLU OTIMIZADO (Menor latência)
+# PASSO 1: NLU — Gemini gera a query otimizada
 # ==========================================
 @st.cache_data(ttl=3600)
 def llm_processamento_nlu(prompt_usuario):
@@ -25,11 +23,11 @@ def llm_processamento_nlu(prompt_usuario):
     - Autor: inauthor:"nome"
     - Título: intitle:"nome"
     - Editora: inpublisher:"nome"
-    - Nacionalidade: "brazilian authors"
+    - Nacionalidade: "brazilian literature" ou "brazilian authors"
     - Saída: APENAS a string de busca, sem explicações ou aspas globais.
 
     Exemplos:
-    "ficção científica japonesa" -> subject:"science fiction" "japanese authors"
+    "ficção científica brasileira" -> subject:"science fiction" "brazilian literature"
     "romance do tolkien" -> subject:"romance" inauthor:"Tolkien"
     "livro 1984" -> intitle:"1984"
 
@@ -49,60 +47,18 @@ def llm_processamento_nlu(prompt_usuario):
 # PASSO 2+3: Busca, seleciona e enriquece 
 # ==========================================
 @st.cache_data(ttl=3600)
-def buscar_e_enriquecer(query_nlu: str, texto_usuario_original: str) -> dict:
+def buscar_e_enriquecer(query_otimizada: str) -> dict:
     API_KEY = st.secrets["BOOKS_API_KEY"]
     
-    # 1. Rastreio de Idioma Seguro (Olhando pro texto original do usuário)
-    idiomas_map = {
-        "inglês": "en", "english": "en", "inglesa": "en",
-        "português": "pt", "brasileira": "pt", "portuguese": "pt",
-        "espanhol": "es", "spanish": "es",
-        "francês": "fr", "french": "fr",
-        "alemão": "de", "german": "de"
-    }
-
-    lang_code = ""
-    texto_lower = texto_usuario_original.lower()
-    for chave, codigo in idiomas_map.items():
-        if chave in texto_lower:
-            lang_code = codigo
-            break 
-            
-    # 2. Extração Limpa (Extrai APENAS o que está depois de subject:)
-    # Se a NLU mandar subject:"poetry" "english authors", isso pega apenas 'poetry'
-    match = re.search(r'subject:"?([^"]+)"?', query_nlu)
-    assunto = match.group(1) if match else query_nlu.replace('"', '').strip()
-
-    # 3. Montagem da Query Correta (Separada por espaço, o requests fará o encoding)
-    q_param = f'subject:"{assunto}"'
-    if lang_code:
-        q_param += f' lr:lang_{lang_code}'
-
-    # 4. Uso do Dicionário 'params' (Isso resolve 100% dos erros de caracteres)
-    params = {
-        "q": q_param,
-        "maxResults": 30,
-        "country": "BR",
-        "key": API_KEY
-    }
-    
-    # Adiciona o langRestrict se encontrou um idioma
-    if lang_code:
-        params["langRestrict"] = lang_code
-
-    url_base = "https://www.googleapis.com/books/v1/volumes"
-    
+    # CORREÇÃO 1: Adicionado '&country=BR' para resolver o erro 'unknownLocation'
+    url = f"https://www.googleapis.com/books/v1/volumes?q={query_otimizada}&maxResults=30&country=BR&key={API_KEY}"
     isbns_selecionados = {"relevante": None, "avaliado": None, "recente": None}
 
     try:
-        # Passamos url_base e params separados. O requests cuida do resto!
-        resposta = requests.get(url_base, params=params, timeout=10)
+        resposta = requests.get(url, timeout=10)
         resposta.raise_for_status()
-        
-        # LOG DE DEBUG SEGURO: Veja a perfeição da URL que o requests cria
-        st.info(f"URL formatada pelo requests: {resposta.url.replace(API_KEY, 'CHAVE_OCULTA')}")
-        
         dados = resposta.json()
+
         if "items" not in dados:
             return {k: None for k in isbns_selecionados}
 
@@ -217,6 +173,7 @@ def llm_enriquecimento_semantico(prompt_usuario: str, dados_json_ld: dict, categ
     O usuário procurou por: "{prompt_usuario}".
     Você está recomendando o livro "{titulo}" porque ele foi classificado como o "{categoria_texto}" da busca.
 
+    Sinopse: {sinopse}
     Avaliação Média: {dados_avaliacao.get('ratingValue', 'N/A')}
     Ano de Publicação: {dados_json_ld.get('datePublished', 'N/A')}
 
