@@ -11,35 +11,36 @@ GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ==========================================
-# PASSO 1: NLU — Gemini gera a query otimizada
+# PASSO 1: NLU OTIMIZADO (Menor latência)
 # ==========================================
 @st.cache_data(ttl=3600)
 def llm_processamento_nlu(prompt_usuario):
+    # Prompt reduzido para acelerar o processamento do modelo
     prompt = f"""
-    O usuário de uma loja de livros digitou o seguinte pedido: "{prompt_usuario}"
-    Transforme esse pedido em uma expressão de busca otimizada para a API do Google Books.
-    
-    REGRAS CRÍTICAS (OPERADORES DETERMINÍSTICOS):
-    1. ASSUNTO/GÊNERO COMPOSTO: Use 'subject:' seguido do gênero em inglês entre ASPAS DUPLAS para termos compostos.
-       - Exemplo: "Ficção científica" -> subject:"science fiction"
-       - Exemplo: "Realismo mágico" -> subject:"magic realism"
-       - Exemplo: "Romance histórico" -> subject:"historical fiction"
-    2. MÚLTIPLOS GÊNEROS: Se o usuário pedir dois gêneros, combine-os (ex: subject:"fantasy" subject:"romance").
-    3. AUTOR(A): Use 'inauthor:' (ex: inauthor:"Clarice Lispector").
-    4. TÍTULO EXATO: Use 'intitle:' (ex: intitle:"A Hora da Estrela").
-    5. EDITORA: Use 'inpublisher:' (ex: inpublisher:"Companhia das Letras").
-    6. NACIONALIDADE: NUNCA deixe a palavra solta. Use aspas exatas para autoria/literatura (ex: "brazilian literature" ou "brazilian authors").
-    
-    EXEMPLOS DE SAÍDA:
-    - Pedido: "Livro de ficção científica brasileiro" -> subject:"science fiction" "brazilian literature"
-    - Pedido: "Romance histórico do Ken Follett" -> subject:"historical fiction" inauthor:"Ken Follett"
-    - Pedido: "Ação e aventura" -> subject:"action & adventure"
-    
-    Retorne APENAS a string de busca final, sem explicações.
+    Converta o pedido do usuário em filtros da API Google Books.
+    Regras:
+    - Gênero: subject:"termo em inglês" (use "" para compostos)
+    - Autor: inauthor:"nome"
+    - Título: intitle:"nome"
+    - Editora: inpublisher:"nome"
+    - Nacionalidade: "brazilian literature" ou "brazilian authors"
+    - Saída: APENAS a string de busca, sem explicações ou aspas globais.
+
+    Exemplos:
+    "ficção científica brasileira" -> subject:"science fiction" "brazilian literature"
+    "romance do tolkien" -> subject:"romance" inauthor:"Tolkien"
+    "livro 1984" -> intitle:"1984"
+
+    Pedido: "{prompt_usuario}"
     """
+    
     resposta = client.models.generate_content(
         model='gemini-3.1-flash-lite-preview', 
-        contents=prompt
+        contents=prompt,
+        config={
+            'temperature': 0.0,      # Elimina aleatoriedade e acelera a resposta
+            'max_output_tokens': 40  # Limita o esforço de geração do modelo
+        }
     )
     return resposta.text.strip()
 
