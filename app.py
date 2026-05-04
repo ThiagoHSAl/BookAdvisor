@@ -43,7 +43,7 @@ def llm_processamento_nlu(prompt_usuario):
         }
     )
     return resposta.text.strip()
-
+# ==========================================
 # PASSO 2+3: Busca, seleciona e enriquece 
 # ==========================================
 @st.cache_data(ttl=3600)
@@ -51,46 +51,42 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
     API_KEY = st.secrets["BOOKS_API_KEY"]
     query_lower = query_otimizada.lower()
     
-    # Mapeamento das 10+ línguas mais faladas e influentes (ISO 639-1)
+    # Mapeamento para rastreio (10 idiomas)
     idiomas_map = {
-        "brazilian": "pt", "portuguese": "pt",
-        "english": "en", "american": "en", "british": "en",
-        "spanish": "es", "hispanic": "es",
-        "chinese": "zh-CN", "mandarin": "zh-CN",
-        "hindi": "hi",
-        "french": "fr",
-        "arabic": "ar",
-        "bengali": "bn",
-        "russian": "ru",
-        "japanese": "ja",
-        "german": "de"
+        "brazilian": "pt", "portuguese": "pt", "english": "en", 
+        "spanish": "es", "french": "fr", "german": "de", 
+        "italian": "it", "chinese": "zh-CN", "japanese": "ja", "russian": "ru"
     }
 
     lang_code = None
-    termo_encontrado = None
+    termo_para_remover = None
 
-    # Identifica se há uma nacionalidade na query gerada pela NLU
+    # 1. Rastreia o idioma e identifica o termo a ser removido da busca textual
     for nacionalidade, codigo in idiomas_map.items():
         if nacionalidade in query_lower:
             lang_code = codigo
-            termo_encontrado = nacionalidade
+            termo_para_remover = nacionalidade
             break 
 
-    # Limpeza da Query: Removemos o termo de nacionalidade da busca textual
-    # mas mantemos a lógica de restrição técnica
+    # 2. Limpeza Cirúrgica da Query
+    # Removemos nacionalidade, a palavra 'authors' e aspas extras
     query_limpa = query_otimizada
-    if termo_encontrado:
-        # Remove o termo (ex: "english") e possíveis aspas ou "authors" que a NLU gerou
-        query_limpa = query_limpa.replace(f'"{termo_encontrado}"', "").replace(termo_encontrado, "").replace("authors", "")
-        query_limpa = query_limpa.strip().replace("  ", " ").replace(" ", "+")
+    if termo_para_remover:
+        termos_sujeira = [termo_para_remover, "authors", '"', "'"]
+        for termo in termos_sujeira:
+            query_limpa = query_limpa.replace(termo, "")
+    
+    # Remove espaços múltiplos e prepara para a URL
+    query_limpa = "+".join(query_limpa.split())
 
-    # Aplicação dos filtros determinísticos
-    lang_restrict_param = ""
+    # 3. Montagem Determinística
     if lang_code:
+        # q=subject:"poetry"+lr:lang_en
         query_final = f"{query_limpa}+lr:lang_{lang_code}"
         lang_restrict_param = f"&langRestrict={lang_code}"
     else:
-        query_final = query_limpa.replace(" ", "+")
+        query_final = query_limpa
+        lang_restrict_param = ""
 
     url = f"https://www.googleapis.com/books/v1/volumes?q={query_final}&maxResults=30&country=BR{lang_restrict_param}&key={API_KEY}"
     # DEBUG: Exibe a URL no Streamlit (remova a chave por segurança na exibição)
