@@ -44,7 +44,6 @@ def llm_processamento_nlu(prompt_usuario):
     )
     return resposta.text.strip()
 
-# ==========================================
 # PASSO 2+3: Busca, seleciona e enriquece 
 # ==========================================
 @st.cache_data(ttl=3600)
@@ -52,31 +51,40 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
     API_KEY = st.secrets["BOOKS_API_KEY"]
     query_lower = query_otimizada.lower()
     
-    # Mapeamento expandido das línguas mais faladas/importantes
+    # Mapeamento das 10+ línguas mais faladas e influentes (ISO 639-1)
     idiomas_map = {
         "brazilian": "pt", "portuguese": "pt",
         "english": "en", "american": "en", "british": "en",
         "spanish": "es", "hispanic": "es",
-        "french": "fr",
-        "german": "de",
-        "italian": "it",
         "chinese": "zh-CN", "mandarin": "zh-CN",
-        "japanese": "ja",
-        "russian": "ru",
         "hindi": "hi",
+        "french": "fr",
         "arabic": "ar",
-        "korean": "ko"
+        "bengali": "bn",
+        "russian": "ru",
+        "japanese": "ja",
+        "german": "de"
     }
 
-    # Detecta se alguma das palavras-chave de nacionalidade está na query
-    lang_restrict = ""
+    # 1. Identificação dinâmica do idioma
+    lang_code = None
     for nacionalidade, codigo in idiomas_map.items():
         if nacionalidade in query_lower:
-            lang_restrict = f"&langRestrict={codigo}"
-            break # Interrompe no primeiro match encontrado
+            lang_code = codigo
+            break 
 
-    # URL montada com suporte internacional, país fixo BR para preços e restrição de língua dinâmica
-    url = f"https://www.googleapis.com/books/v1/volumes?q={query_otimizada}&maxResults=30&country=BR{lang_restrict}&key={API_KEY}"
+    # 2. Construção da Query e Parâmetros de Restrição
+    # Se detectado idioma, aplicamos o filtro duplo (parâmetro + operador na query)
+    lang_restrict_param = ""
+    query_final = query_otimizada
+    
+    if lang_code:
+        # O operador 'lr:lang_' é a forma mais agressiva de forçar o idioma
+        query_final = f"{query_otimizada}+lr:lang_{lang_code}"
+        lang_restrict_param = f"&langRestrict={lang_code}"
+
+    # 3. URL com geolocalização fixa para evitar erro 403 e suporte dinâmico
+    url = f"https://www.googleapis.com/books/v1/volumes?q={query_final}&maxResults=30&country=BR{lang_restrict_param}&key={API_KEY}"
     isbns_selecionados = {"relevante": None, "avaliado": None, "recente": None}
 
     try:
