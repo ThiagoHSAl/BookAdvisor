@@ -106,6 +106,8 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
 
     try:
         resposta = requests.get(url, timeout=10)
+        st.write(f"Status Code: {resposta.status_code}")
+        st.write(f"Total de itens encontrados no código: {resposta.json().get('totalItems')}")
         resposta.raise_for_status()
         dados = resposta.json()
 
