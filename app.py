@@ -83,22 +83,22 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
     else:
         query_preparada = f'"{query_limpa}"'
     
+   # Monta a query final
     if lang_code:
         query_final = f'{query_preparada}+lr:lang_{lang_code}'
     else:
         query_final = query_preparada
-    
-    # ✅ Encode manual: preserva aspas, :, + e " como literais
+
     query_encoded = quote(query_final, safe='+"')
+
     url = (
         f"https://www.googleapis.com/books/v1/volumes"
         f"?q={query_encoded}"
         f"&maxResults=30"
         f"&country=BR"
         f"&key={API_KEY}"
+        # ✅ Removido: &langRestrict={lang_code}
     )
-    if lang_code:
-        url += f"&langRestrict={lang_code}"
     
     # ✅ Debug: mostra a URL REAL que o requests vai enviar
     import requests
