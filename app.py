@@ -93,30 +93,45 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
 
         isbns_usados = set()
 
+        # --- NOVA LÓGICA DE SELEÇÃO E PRIORIDADES ---
+        
         # 1. PRIORIDADE MÁXIMA: Mais Recente
         livros_com_data = [l for l in livros_validos if l["data"] != "0000"]
         if livros_com_data:
-            isbns_selecionados["recente"] = sorted(livros_com_data, key=lambda x: x["data"], reverse=True)[0]["isbn"]
+            # Em vez de pegar só o ISBN, guardamos o dicionário do livro inteiro
+            livro_recente = sorted(livros_com_data, key=lambda x: x["data"], reverse=True)[0]
         else:
-            isbns_selecionados["recente"] = livros_validos[0]["isbn"]
-        isbns_usados.add(isbns_selecionados["recente"])
+            livro_recente = livros_validos[0]
+            
+        isbns_selecionados["recente"] = livro_recente["isbn"]
+        nota_recente = livro_recente.get("nota", 0)
 
-        # 2. PRIORIDADE MÉDIA: Mais Bem Avaliado
-        livros_com_nota = [l for l in livros_validos if l["nota"] > 0 and l["isbn"] not in isbns_usados]
-        if livros_com_nota:
-            isbns_selecionados["avaliado"] = sorted(livros_com_nota, key=lambda x: x["nota"], reverse=True)[0]["isbn"]
+        # 2. PRIORIDADE MÉDIA: Mais Bem Avaliado (Regra de Qualidade Mínima)
+        # Pega os livros que têm nota e são diferentes do recente
+        livros_diferentes_com_nota = [l for l in livros_validos if l["nota"] > 0 and l["isbn"] != livro_recente["isbn"]]
+        
+        if livros_diferentes_com_nota:
+            melhor_candidato = sorted(livros_diferentes_com_nota, key=lambda x: x["nota"], reverse=True)[0]
+            # Aplica a sua regra: só mostra outro se a nota for MAIOR OU IGUAL à do mais recente
+            if melhor_candidato["nota"] >= nota_recente:
+                isbns_selecionados["avaliado"] = melhor_candidato["isbn"]
+            else:
+                isbns_selecionados["avaliado"] = livro_recente["isbn"]
         else:
-            restantes = [l for l in livros_validos if l["isbn"] not in isbns_usados]
-            isbns_selecionados["avaliado"] = restantes[0]["isbn"] if restantes else isbns_selecionados["recente"]
-        isbns_usados.add(isbns_selecionados["avaliado"])
+            # Se não houver nenhum outro livro com nota, repete o recente
+            isbns_selecionados["avaliado"] = livro_recente["isbn"]
 
         # 3. PRIORIDADE FINAL: Mais Relevante
+        # A relevância do Google é a ordem da lista. Pegamos o primeiro que não foi usado ainda.
+        isbns_usados = {isbns_selecionados["recente"], isbns_selecionados["avaliado"]}
         restantes_relevantes = [l for l in livros_validos if l["isbn"] not in isbns_usados]
+        
         if restantes_relevantes:
             isbns_selecionados["relevante"] = restantes_relevantes[0]["isbn"]
         else:
-            isbns_selecionados["relevante"] = isbns_selecionados["recente"]
-        isbns_usados.add(isbns_selecionados["relevante"])
+            isbns_selecionados["relevante"] = livro_recente["isbn"]
+            
+        # --------------------------------------------
 
     except Exception as e:
         # CORREÇÃO 2: Blinda a chave! Substitui a string da chave por asteriscos no texto de erro
@@ -172,6 +187,8 @@ def llm_enriquecimento_semantico(prompt_usuario: str, dados_json_ld: dict, categ
     prompt = f"""
     O usuário procurou por: "{prompt_usuario}".
     Você está recomendando o livro "{titulo}" porque ele foi classificado como o "{categoria_texto}" da busca.
+
+    Sinopse: {sinopse}
     Avaliação Média: {dados_avaliacao.get('ratingValue', 'N/A')}
     Ano de Publicação: {dados_json_ld.get('datePublished', 'N/A')}
 
