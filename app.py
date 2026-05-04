@@ -89,9 +89,7 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
         query_final = query_preparada
     
     # ✅ Encode manual: preserva aspas, :, + e " como literais
-    query_encoded = quote(query_final, safe=':+"')
-    
-    # Monta a URL manualmente (NÃO usa params= do requests)
+    query_encoded = quote(query_final, safe='+"')
     url = (
         f"https://www.googleapis.com/books/v1/volumes"
         f"?q={query_encoded}"
@@ -102,14 +100,17 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
     if lang_code:
         url += f"&langRestrict={lang_code}"
     
-    # Debug
-    url_debug = url.replace(API_KEY, "MINHA_CHAVE_OCULTA")
-    st.info(f"🔍 URL Gerada: {url_debug}")
+    # ✅ Debug: mostra a URL REAL que o requests vai enviar
+    import requests
+    req = requests.Request('GET', url)
+    prepared = req.prepare()
+    st.code(prepared.url.replace(API_KEY, "OCULTA"))  # URL real após prepare()
+
     
     isbns_selecionados = {"relevante": None, "avaliado": None, "recente": None}
 
     try:
-        resposta = requests.get(url, timeout=10)
+        resposta = requests.Session().send(prepared, timeout=10)
         st.write(f"Status Code: {resposta.status_code}")
         st.write(f"Total de itens encontrados no código: {resposta.json().get('totalItems')}")
         resposta.raise_for_status()
