@@ -50,72 +50,13 @@ def llm_processamento_nlu(prompt_usuario):
 @st.cache_data(ttl=3600)
 def buscar_e_enriquecer(query_otimizada: str) -> dict:
     API_KEY = st.secrets["BOOKS_API_KEY"]
-    query_lower = query_otimizada.lower()
     
-    idiomas_map = {
-        "brazilian": "pt", "portuguese": "pt", "english": "en", 
-        "spanish": "es", "french": "fr", "german": "de", 
-        "italian": "it", "chinese": "zh-CN", "japanese": "ja", "russian": "ru"
-    }
-
-    lang_code = None
-    termo_para_remover = None
-
-    for nacionalidade, codigo in idiomas_map.items():
-        if nacionalidade in query_lower:
-            lang_code = codigo
-            termo_para_remover = nacionalidade
-            break
-
-    # Limpeza da query — remove nacionalidade e "authors"
-    query_limpa = query_otimizada
-    if termo_para_remover:
-        for termo in [termo_para_remover, "authors"]:
-            query_limpa = query_limpa.replace(termo, "")
-
-    # Remove aspas e espaços soltos
-    query_limpa = query_limpa.replace('"', '').replace("'", "").strip()
-
-    # Reconstrói o subject com aspas
-    if "subject:" in query_limpa:
-        assunto = query_limpa.replace("subject:", "").strip()
-        query_preparada = f'subject:"{assunto}"'
-    else:
-        query_preparada = f'"{query_limpa}"'
-    
-   # Monta a query final
-    if lang_code:
-        query_final = f'{query_preparada}+lr:lang_{lang_code}'
-    else:
-        query_final = query_preparada
-
-    query_encoded = quote(query_final, safe='+"')
-
-    url = (
-        f"https://www.googleapis.com/books/v1/volumes"
-        f"?q={query_encoded}"
-        f"&maxResults=30"
-        f"&country=BR"
-        f"&key={API_KEY}"
-        # ✅ Removido: &langRestrict={lang_code}
-    )
-    
-    # ✅ Debug: mostra a URL REAL que o requests vai enviar
-    import requests
-    req = requests.Request('GET', url)
-    prepared = req.prepare()
-    st.code(prepared.url.replace(API_KEY, "OCULTA"))  # URL real após prepare()
-
-    
+    # CORREÇÃO 1: Adicionado '&country=BR' para resolver o erro 'unknownLocation'
+    url = f"https://www.googleapis.com/books/v1/volumes?q={query_otimizada}&maxResults=30&country=BR&key={API_KEY}"
     isbns_selecionados = {"relevante": None, "avaliado": None, "recente": None}
 
     try:
-        resposta = requests.Session().send(prepared, timeout=10)
-        dados = resposta.json()
-        # Mostra o JSON completo (primeiros 2000 chars)
-        st.code(str(dados)[:2000])
-        st.write(f"Status Code: {resposta.status_code}")
-        st.write(f"Total de itens encontrados no código: {resposta.json().get('totalItems')}")
+        resposta = requests.get(url, timeout=10)
         resposta.raise_for_status()
         dados = resposta.json()
 
