@@ -78,8 +78,8 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
 
     # Reconstrói o subject com aspas
     if "subject:" in query_limpa:
-    assunto = query_limpa.replace("subject:", "").strip()
-    query_preparada = f'subject:"{assunto}"'
+        assunto = query_limpa.replace("subject:", "").strip()
+        query_preparada = f'subject:"{assunto}"'
     else:
         query_preparada = f'"{query_limpa}"'
     
