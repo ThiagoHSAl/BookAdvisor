@@ -84,10 +84,11 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
         lang_restrict_param = f"&langRestrict={lang_code}"
 
     # 3. URL com geolocalização fixa para evitar erro 403 e suporte dinâmico
+    url = f"https://www.googleapis.com/books/v1/volumes?q={query_final}&maxResults=30&country=BR{lang_restrict_param}&key={API_KEY}"
     # DEBUG: Exibe a URL no Streamlit (remova a chave por segurança na exibição)
     url_debug = url.replace(API_KEY, "MINHA_CHAVE_OCULTA")
     st.info(f"🔍 URL Gerada para requisição: {url_debug}")
-    url = f"https://www.googleapis.com/books/v1/volumes?q={query_final}&maxResults=30&country=BR{lang_restrict_param}&key={API_KEY}"
+    
     isbns_selecionados = {"relevante": None, "avaliado": None, "recente": None}
 
     try:
