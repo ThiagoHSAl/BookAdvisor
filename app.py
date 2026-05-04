@@ -23,11 +23,11 @@ def llm_processamento_nlu(prompt_usuario):
     - Autor: inauthor:"nome"
     - Título: intitle:"nome"
     - Editora: inpublisher:"nome"
-    - Nacionalidade: "brazilian" ou "brazilian authors"
+    - Nacionalidade: "brazilian authors"
     - Saída: APENAS a string de busca, sem explicações ou aspas globais.
 
     Exemplos:
-    "ficção científica japonesa" -> subject:"science fiction" "japanese"
+    "ficção científica japonesa" -> subject:"science fiction" "japanese authors"
     "romance do tolkien" -> subject:"romance" inauthor:"Tolkien"
     "livro 1984" -> intitle:"1984"
 
@@ -78,12 +78,16 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
     lang_restrict_param = ""
     query_final = query_otimizada
     
+    query_preparada = query_otimizada.replace(" ", "+")
+    
     if lang_code:
-        # O operador 'lr:lang_' é a forma mais agressiva de forçar o idioma
-        query_final = f"{query_otimizada}+lr:lang_{lang_code}"
+        # Note o sinal de + antes do operador lr
+        query_final = f"{query_preparada}+lr:lang_{lang_code}"
         lang_restrict_param = f"&langRestrict={lang_code}"
+    else:
+        query_final = query_preparada
+        lang_restrict_param = ""
 
-    # 3. URL com geolocalização fixa para evitar erro 403 e suporte dinâmico
     url = f"https://www.googleapis.com/books/v1/volumes?q={query_final}&maxResults=30&country=BR{lang_restrict_param}&key={API_KEY}"
     # DEBUG: Exibe a URL no Streamlit (remova a chave por segurança na exibição)
     url_debug = url.replace(API_KEY, "MINHA_CHAVE_OCULTA")
