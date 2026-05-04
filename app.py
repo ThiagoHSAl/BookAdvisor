@@ -111,6 +111,9 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
 
     try:
         resposta = requests.Session().send(prepared, timeout=10)
+        dados = resposta.json()
+        # Mostra o JSON completo (primeiros 2000 chars)
+        st.code(str(dados)[:2000])
         st.write(f"Status Code: {resposta.status_code}")
         st.write(f"Total de itens encontrados no código: {resposta.json().get('totalItems')}")
         resposta.raise_for_status()
