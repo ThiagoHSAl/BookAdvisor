@@ -94,7 +94,7 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
         f"https://www.googleapis.com/books/v1/volumes"
         f"?q={query_encoded}"
         f"&maxResults=30"
-        f"&country=BR"
+        # f"&country=BR"
         f"&key={API_KEY}"
     )
     if lang_code:
