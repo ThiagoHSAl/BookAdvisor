@@ -109,7 +109,7 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
     isbns_selecionados = {"relevante": None, "avaliado": None, "recente": None}
 
     try:
-         resposta = requests.get(base_url, params=params, timeout=10))
+        resposta = requests.get(base_url, params=params, timeout=10)
         st.write(f"Status Code: {resposta.status_code}")
         st.write(f"Total de itens encontrados no código: {resposta.json().get('totalItems')}")
         resposta.raise_for_status()
