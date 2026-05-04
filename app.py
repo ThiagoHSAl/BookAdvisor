@@ -3,6 +3,7 @@ import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from google import genai
 from api_test import montar_dados_google, enriquecer_metadados_com_google
+from urllib.parse import quote
 
 # ==========================================
 # CONFIGURAÇÃO DA API DO GEMINI
@@ -77,39 +78,38 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
 
     # Reconstrói o subject com aspas
     if "subject:" in query_limpa:
-        assunto = query_limpa.replace("subject:", "").strip()
-        query_preparada = f'subject:"{assunto}"'
+    assunto = query_limpa.replace("subject:", "").strip()
+    query_preparada = f'subject:"{assunto}"'
     else:
         query_preparada = f'"{query_limpa}"'
-
-    # ✅ CORREÇÃO: monta a query final como string limpa
-    # O lr:lang_XX é um operador de query, não um param separado
+    
     if lang_code:
-        query_final = f'{query_preparada} lr:lang_{lang_code}'
+        query_final = f'{query_preparada}+lr:lang_{lang_code}'
     else:
         query_final = query_preparada
-
-    # ✅ CORREÇÃO: passa params como dict — o requests cuida do encoding correto
-    params = {
-        "q": query_final,
-        "maxResults": 30,
-        "country": "BR",
-        "key": API_KEY,
-    }
+    
+    # ✅ Encode manual: preserva aspas, :, + e " como literais
+    query_encoded = quote(query_final, safe=':+"')
+    
+    # Monta a URL manualmente (NÃO usa params= do requests)
+    url = (
+        f"https://www.googleapis.com/books/v1/volumes"
+        f"?q={query_encoded}"
+        f"&maxResults=30"
+        f"&country=BR"
+        f"&key={API_KEY}"
+    )
     if lang_code:
-        params["langRestrict"] = lang_code
-
-    base_url = "https://www.googleapis.com/books/v1/volumes"
-
-    # Debug sem expor a chave
-    from urllib.parse import urlencode
-    params_debug = {**params, "key": "MINHA_CHAVE_OCULTA"}
-    st.info(f"🔍 URL Gerada: {base_url}?{urlencode(params_debug)}")
+        url += f"&langRestrict={lang_code}"
+    
+    # Debug
+    url_debug = url.replace(API_KEY, "MINHA_CHAVE_OCULTA")
+    st.info(f"🔍 URL Gerada: {url_debug}")
     
     isbns_selecionados = {"relevante": None, "avaliado": None, "recente": None}
 
     try:
-        resposta = requests.get(base_url, params=params, timeout=10)
+        resposta = requests.get(url, timeout=10)
         st.write(f"Status Code: {resposta.status_code}")
         st.write(f"Total de itens encontrados no código: {resposta.json().get('totalItems')}")
         resposta.raise_for_status()
