@@ -187,8 +187,6 @@ def llm_enriquecimento_semantico(prompt_usuario: str, dados_json_ld: dict, categ
     prompt = f"""
     O usuário procurou por: "{prompt_usuario}".
     Você está recomendando o livro "{titulo}" porque ele foi classificado como o "{categoria_texto}" da busca.
-
-    Sinopse: {sinopse}
     Avaliação Média: {dados_avaliacao.get('ratingValue', 'N/A')}
     Ano de Publicação: {dados_json_ld.get('datePublished', 'N/A')}
 
