@@ -69,25 +69,34 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
             break 
 
     # 2. Limpeza Cirúrgica da Query
-    # Removemos nacionalidade, a palavra 'authors' e aspas extras
     query_limpa = query_otimizada
     if termo_para_remover:
-        termos_sujeira = [termo_para_remover, "authors", '"', "'"]
+        # Remove a nacionalidade e a palavra 'authors', mas PRESERVA a estrutura do subject
+        termos_sujeira = [termo_para_remover, "authors"]
         for termo in termos_sujeira:
             query_limpa = query_limpa.replace(termo, "")
     
-    # Remove espaços múltiplos e prepara para a URL
-    query_limpa = "+".join(query_limpa.split())
+    # Remove aspas que já existam para evitar duplicidade, depois limpa espaços
+    query_limpa = query_limpa.replace('"', '').replace("'", "").strip()
+    
+    # Reconstrói o subject com aspas obrigatórias
+    # Se a NLU enviou subject:poetry, transformamos em subject:"poetry"
+    if "subject:" in query_limpa:
+        assunto = query_limpa.replace("subject:", "").strip()
+        query_preparada = f'subject:"{assunto}"'
+    else:
+        query_preparada = f'"{query_limpa}"'
 
-    # 3. Montagem Determinística
+    # 3. Montagem Determinística com Encoding Correto
     if lang_code:
-        # q=subject:"poetry"+lr:lang_en
-        query_final = f"{query_limpa}+lr:lang_{lang_code}"
+        # O sinal de + é usado para unir os operadores sem espaços
+        query_final = f"{query_preparada}+lr:lang_{lang_code}"
         lang_restrict_param = f"&langRestrict={lang_code}"
     else:
-        query_final = query_limpa
+        query_final = query_preparada
         lang_restrict_param = ""
 
+    # A biblioteca requests cuidará de transformar as " em %22 automaticamente
     url = f"https://www.googleapis.com/books/v1/volumes?q={query_final}&maxResults=30&country=BR{lang_restrict_param}&key={API_KEY}"
     # DEBUG: Exibe a URL no Streamlit (remova a chave por segurança na exibição)
     url_debug = url.replace(API_KEY, "MINHA_CHAVE_OCULTA")
