@@ -51,7 +51,6 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
     API_KEY = st.secrets["BOOKS_API_KEY"]
     query_lower = query_otimizada.lower()
     
-    # Mapeamento para rastreio (10 idiomas)
     idiomas_map = {
         "brazilian": "pt", "portuguese": "pt", "english": "en", 
         "spanish": "es", "french": "fr", "german": "de", 
@@ -61,51 +60,56 @@ def buscar_e_enriquecer(query_otimizada: str) -> dict:
     lang_code = None
     termo_para_remover = None
 
-    # 1. Rastreia o idioma e identifica o termo a ser removido da busca textual
     for nacionalidade, codigo in idiomas_map.items():
         if nacionalidade in query_lower:
             lang_code = codigo
             termo_para_remover = nacionalidade
-            break 
+            break
 
-    # 2. Limpeza Cirúrgica da Query
+    # Limpeza da query — remove nacionalidade e "authors"
     query_limpa = query_otimizada
     if termo_para_remover:
-        # Remove a nacionalidade e a palavra 'authors', mas PRESERVA a estrutura do subject
-        termos_sujeira = [termo_para_remover, "authors"]
-        for termo in termos_sujeira:
+        for termo in [termo_para_remover, "authors"]:
             query_limpa = query_limpa.replace(termo, "")
-    
-    # Remove aspas que já existam para evitar duplicidade, depois limpa espaços
+
+    # Remove aspas e espaços soltos
     query_limpa = query_limpa.replace('"', '').replace("'", "").strip()
-    
-    # Reconstrói o subject com aspas obrigatórias
-    # Se a NLU enviou subject:poetry, transformamos em subject:"poetry"
+
+    # Reconstrói o subject com aspas
     if "subject:" in query_limpa:
         assunto = query_limpa.replace("subject:", "").strip()
         query_preparada = f'subject:"{assunto}"'
     else:
         query_preparada = f'"{query_limpa}"'
 
-    # 3. Montagem Determinística com Encoding Correto
+    # ✅ CORREÇÃO: monta a query final como string limpa
+    # O lr:lang_XX é um operador de query, não um param separado
     if lang_code:
-        # O sinal de + é usado para unir os operadores sem espaços
-        query_final = f"{query_preparada}+lr:lang_{lang_code}"
-        lang_restrict_param = f"&langRestrict={lang_code}"
+        query_final = f'{query_preparada} lr:lang_{lang_code}'
     else:
         query_final = query_preparada
-        lang_restrict_param = ""
 
-    # A biblioteca requests cuidará de transformar as " em %22 automaticamente
-    url = f"https://www.googleapis.com/books/v1/volumes?q={query_final}&maxResults=30&country=BR{lang_restrict_param}&key={API_KEY}"
-    # DEBUG: Exibe a URL no Streamlit (remova a chave por segurança na exibição)
-    url_debug = url.replace(API_KEY, "MINHA_CHAVE_OCULTA")
-    st.info(f"🔍 URL Gerada para requisição: {url_debug}")
+    # ✅ CORREÇÃO: passa params como dict — o requests cuida do encoding correto
+    params = {
+        "q": query_final,
+        "maxResults": 30,
+        "country": "BR",
+        "key": API_KEY,
+    }
+    if lang_code:
+        params["langRestrict"] = lang_code
+
+    base_url = "https://www.googleapis.com/books/v1/volumes"
+
+    # Debug sem expor a chave
+    from urllib.parse import urlencode
+    params_debug = {**params, "key": "MINHA_CHAVE_OCULTA"}
+    st.info(f"🔍 URL Gerada: {base_url}?{urlencode(params_debug)}")
     
     isbns_selecionados = {"relevante": None, "avaliado": None, "recente": None}
 
     try:
-        resposta = requests.get(url, timeout=10)
+         resposta = requests.get(base_url, params=params, timeout=10))
         st.write(f"Status Code: {resposta.status_code}")
         st.write(f"Total de itens encontrados no código: {resposta.json().get('totalItems')}")
         resposta.raise_for_status()
