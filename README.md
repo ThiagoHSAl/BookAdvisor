@@ -31,6 +31,7 @@ O projeto foi construído utilizando um ecossistema focado em Python e arquitetu
 ```bash
 git clone [https://github.com/SEU_USUARIO/bookadvisor-ia.git](https://github.com/SEU_USUARIO/bookadvisor-ia.git)
 cd bookadvisor-ia
+```
 
 ### 2. Crie e ative um ambiente virtual
 ```bash
@@ -39,10 +40,12 @@ python -m venv venv
 venv\Scripts\activate
 # No Linux/Mac:
 source venv/bin/activate
+```
 
 ### 3. Instale as dependências
 ```bash
 pip install streamlit requests google-genai
+```
 
 ### 4. Configure as Chaves de API (Secrets)
 O Streamlit utiliza uma pasta oculta para gerenciar variáveis de ambiente de forma segura.
@@ -51,9 +54,11 @@ Na raiz do projeto, crie uma pasta chamada .streamlit e, dentro dela, um arquivo
 # .streamlit/secrets.toml
 GEMINI_API_KEY = "sua_chave_do_google_aistudio_aqui"
 BOOKS_API_KEY = "sua_chave_do_google_cloud_console_aqui"
+```
 
 ### 5. Inicie a aplicação
 ```bash
 streamlit run app.py
+```
 
 A aplicação abrirá automaticamente no seu navegador padrão no endereço http://localhost:8501.
